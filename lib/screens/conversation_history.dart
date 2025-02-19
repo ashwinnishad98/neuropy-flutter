@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'conversation_detail_screen.dart';
 
 class ConversationHistory extends StatefulWidget {
   const ConversationHistory({super.key});
@@ -44,6 +45,9 @@ class _ConversationHistoryState extends State<ConversationHistory> {
             'timestamp': data['timestamp'],
             'transcription': data['transcription'],
             'emotions': data['emotions'],
+            'people': data['people'],
+            'locations': data['locations'],
+            'events': data['events'],
           };
         }).toList();
         isLoading = false;
@@ -88,54 +92,80 @@ class _ConversationHistoryState extends State<ConversationHistory> {
   Widget buildConversationCard(Map<String, dynamic> conversation) {
     final timestamp = conversation['timestamp'] as Timestamp;
     final transcription = conversation['transcription'] as String;
-    final emotions = conversation['emotions'] as List<dynamic>;
+    final emotions = (conversation['emotions'] ?? []) as List<dynamic>;
+    final people = (conversation['people'] ?? []) as List<dynamic>;
+    final locations = (conversation['locations'] ?? []) as List<dynamic>;
+    final events = (conversation['events'] ?? []) as List<dynamic>;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+    print(locations);
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ConversationDetailScreen(
+              conversation: {
+                'timestamp': timestamp.toDate(),
+                'transcription': transcription,
+                'emotions': emotions,
+                'people': people,
+                'locations': locations,
+                'events': events,
+              },
+            ),
           ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '"' + transcription.split(' ').take(20).join(' ') + '..."',
-            style: const TextStyle(fontSize: 14, color: Colors.black87),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Wrap(
-                spacing: 8.0,
-                children: emotions.map<Widget>((emotionWithIntensity) {
-                  // Extract only the emotion part (e.g., "Joy" from "Joy (High)")
-                  final emotion = emotionWithIntensity.split(' (')[0];
-                  return Chip(
-                    label: Text(
-                      emotion,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                    backgroundColor: getEmotionColor(emotionWithIntensity),
-                  );
-                }).toList(),
-              ),
-              Text(
-                DateFormat('MMM dd, yyyy – hh:mm a').format(timestamp.toDate()),
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
-              ),
-            ],
-          ),
-        ],
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '"' + transcription.split(' ').take(20).join(' ') + '..."',
+              style: const TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Wrap(
+                  spacing: 8.0,
+                  children: emotions.map<Widget>((emotionWithIntensity) {
+                    // Extract only the emotion part (e.g., "Joy" from "Joy (High)")
+                    final emotion = emotionWithIntensity.split(' (')[0];
+                    return Chip(
+                      label: Text(
+                        emotion,
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                      backgroundColor: getEmotionColor(emotionWithIntensity),
+                    );
+                  }).toList(),
+                ),
+                Text(
+                  DateFormat('MMM dd, yyyy – hh:mm a')
+                      .format(timestamp.toDate()),
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

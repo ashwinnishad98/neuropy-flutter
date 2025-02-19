@@ -5,7 +5,6 @@ import 'package:bubble_chart/bubble_chart.dart';
 import 'package:neuropy_app/screens/factor_detail_screen.dart';
 import 'package:neuropy_app/screens/mood_detail_screen.dart';
 
-
 class MoodCloudScreen extends StatefulWidget {
   const MoodCloudScreen({super.key});
 
@@ -178,7 +177,7 @@ class _MoodCloudScreenState extends State<MoodCloudScreen> {
       appBar: AppBar(
         title: const Text('Mood and Factor'),
         centerTitle: true,
-        backgroundColor: const Color.fromARGB(255, 240, 240, 240),
+        backgroundColor: const Color.fromARGB(255, 224, 224, 224),
         elevation: 0,
         foregroundColor: Colors.black,
       ),

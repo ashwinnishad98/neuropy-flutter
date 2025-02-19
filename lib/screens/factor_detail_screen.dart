@@ -165,7 +165,7 @@ class _FactorDetailScreenState extends State<FactorDetailScreen> {
       appBar: AppBar(
         title: Text(widget.factor),
         centerTitle: true,
-        backgroundColor: const Color.fromARGB(255, 240, 240, 240),
+        backgroundColor: const Color.fromARGB(255, 224, 224, 224),
         elevation: 0,
         foregroundColor: Colors.black,
       ),
