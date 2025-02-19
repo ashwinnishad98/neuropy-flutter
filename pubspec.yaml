@@ -37,6 +37,7 @@ dependencies:
   firebase_core: ^3.10.1
   cloud_firestore: ^5.6.2
   bubble_chart:
+  intl: ^0.17.0
 
 dev_dependencies:
   flutter_test:

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'emotion_wheel_screen.dart';
 import 'mood_cloud_screen.dart';
+import 'conversation_history.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -54,7 +55,7 @@ class HomeScreen extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const MoodCloudScreen()),
+                  MaterialPageRoute(builder: (context) => const ConversationHistory()),
                 );
               },
               style: ElevatedButton.styleFrom(
