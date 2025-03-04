@@ -21,7 +21,7 @@ class _MoodDetailScreenState extends State<MoodDetailScreen> {
   // Define unique colors for each mood
   final Map<String, Color> moodColors = {
     'Joy': const Color.fromARGB(255, 237, 156, 25),
-    'Trust': const Color.fromARGB(255, 166, 194, 50),
+    'Trust': const Color.fromARGB(255, 155, 61, 130),
     'Fear': const Color.fromARGB(255, 56, 155, 78),
     'Surprise': const Color.fromARGB(255, 38, 188, 159),
     'Sadness': const Color.fromARGB(255, 62, 157, 245),

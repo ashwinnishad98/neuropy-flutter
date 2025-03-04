@@ -4,23 +4,23 @@ import '../models/emotion.dart';
 class EmotionCenterImage extends StatelessWidget {
   final int selectedEmotionIndex;
   final List<Emotion> emotions;
+  final bool isVisible;  // Add this parameter
 
-  const EmotionCenterImage(this.selectedEmotionIndex, this.emotions);
+  const EmotionCenterImage(this.selectedEmotionIndex, this.emotions, 
+      {Key? key, this.isVisible = true}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    if (selectedEmotionIndex == -1) return const SizedBox();
+
     return AnimatedOpacity(
-      opacity: selectedEmotionIndex == -1 ? 0.0 : 1.0,
+      opacity: isVisible ? 1.0 : 0.0,
       duration: const Duration(milliseconds: 300),
-      child: selectedEmotionIndex == -1
-          ? null
-          : Image.asset(
-              emotions[selectedEmotionIndex].imagePath,
-              fit: BoxFit.contain,
-              key: ValueKey(selectedEmotionIndex),
-              width: 140,
-              height: 140,
-            ),
+      child: Image.asset(
+        emotions[selectedEmotionIndex].imagePath,
+        width: 120,
+        height: 120,
+      ),
     );
   }
 }

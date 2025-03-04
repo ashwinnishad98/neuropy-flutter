@@ -5,6 +5,72 @@ import 'package:bubble_chart/bubble_chart.dart';
 import 'package:neuropy_app/screens/factor_detail_screen.dart';
 import 'package:neuropy_app/screens/mood_detail_screen.dart';
 
+// Custom widget for animating bubbles
+class FloatingBubble extends StatefulWidget {
+  final Widget child;
+  final double intensity; // Controls how much the bubble moves
+
+  const FloatingBubble({
+    Key? key,
+    required this.child,
+    this.intensity = 2.0,
+  }) : super(key: key);
+
+  @override
+  _FloatingBubbleState createState() => _FloatingBubbleState();
+}
+
+class _FloatingBubbleState extends State<FloatingBubble>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<Offset> _offsetAnimation;
+  
+  // Create a random offset for each bubble to make them move asynchronously
+  final double _randomOffset = Random().nextDouble() * 2 * pi;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Create an animation controller with a longer duration for slow, gentle movement
+    _controller = AnimationController(
+      duration: Duration(milliseconds: 3000 + Random().nextInt(2000)), // Random duration for variety
+      vsync: this,
+    )..repeat(reverse: true); // Automatically reverse and repeat
+
+    // Create a curved animation that moves slightly up and down
+    _offsetAnimation = Tween<Offset>(
+      begin: Offset(0, -0.01 * widget.intensity),
+      end: Offset(0, 0.01 * widget.intensity),
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      // Use a sine wave curve for smooth, natural movement
+      curve: Curves.elasticInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Apply a slight delay based on random offset to make bubbles move asynchronously
+    Future.delayed(Duration(milliseconds: (_randomOffset * 300).toInt()), () {
+      if (mounted) {
+        _controller.forward();
+      }
+    });
+
+    return SlideTransition(
+      position: _offsetAnimation,
+      child: widget.child,
+    );
+  }
+}
+
 class MoodCloudScreen extends StatefulWidget {
   const MoodCloudScreen({super.key});
 
@@ -24,7 +90,7 @@ class _MoodCloudScreenState extends State<MoodCloudScreen> {
     },
     {
       'label': 'Trust',
-      'color': const Color.fromARGB(255, 166, 194, 50),
+      'color': const Color.fromARGB(255, 155, 61, 130),
     },
     {
       'label': 'Fear',
@@ -97,37 +163,68 @@ class _MoodCloudScreenState extends State<MoodCloudScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Calculate the maximum count for scaling
+    // Calculate the maximum and minimum counts
     final int maxCount = emotionCounts.values.isNotEmpty
         ? emotionCounts.values.reduce((a, b) => a > b ? a : b)
         : 1;
+    
+    final int minCount = emotionCounts.values.isNotEmpty
+        ? emotionCounts.values.reduce((a, b) => a < b ? a : b)
+        : 0;
 
-    // Define size limits
-    const double maxBubbleRadius = 80.0; // Maximum bubble radius
-    const double minBubbleRadius = 20.0; // Minimum bubble radius
+    // Much larger gap between min and max radius for better visual differentiation
+    const double maxBubbleRadius = 120.0; // Increased maximum radius
+    const double minBubbleRadius = 35.0; // Decreased minimum radius
 
     // Get screen dimensions
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
-
-    // Calculate a scaling factor to ensure bubbles fit within the screen
-    final double maxAllowedRadius =
-        (screenWidth < screenHeight ? screenWidth : screenHeight) / 4 - 15;
+    
+    // More conservative max allowed radius
+    final double maxAllowedRadius = (screenWidth < screenHeight ? screenWidth : screenHeight) / 4;
 
     // Create child nodes for the bubble chart
     final List<BubbleNode> childNodes = bubbles.map((bubble) {
       final String label = bubble['label'];
       final int count = emotionCounts[label] ?? 0;
 
-      // Apply logarithmic scaling for large counts
-      double scaledValue = count > 0 ? (1 + (log(count) / log(maxCount))) : 0.5;
+      // Enhanced scaling logic for small counts
+      double scaledValue;
+      
+      if (maxCount == minCount) {
+        // If all counts are equal, use a middle value
+        scaledValue = 0.7;
+      } else if (count == 0) {
+        // Special case for zero counts
+        scaledValue = 0.2; // Make zero counts even smaller
+      } else {
+        // For very small ranges (like 1-4), we need a more aggressive approach
+        
+        // Start with a higher base for non-zero values
+        double baseValue = 0.3; 
+        
+        // Add an amplified proportion of the range
+        // This creates bigger jumps between values
+        double amplifier = 1.5; // Amplification factor
+        double proportion = (count - minCount) / max(1, maxCount - minCount);
+        
+        // Apply amplified scaling
+        scaledValue = baseValue + (0.6 * proportion * amplifier);
+        
+        // Clamp to ensure we don't exceed 1.0
+        scaledValue = min(1.0, scaledValue);
+      }
 
       // Scale bubble size between min and max radius
-      double value =
-          scaledValue * (maxBubbleRadius - minBubbleRadius) + minBubbleRadius;
-
+      double value = scaledValue * (maxBubbleRadius - minBubbleRadius) + minBubbleRadius;
+      
       // Constrain value to fit within maxAllowedRadius
       value = value.clamp(minBubbleRadius, maxAllowedRadius);
+      
+      // Calculate animation intensity based on bubble size
+      // Smaller bubbles move more, larger bubbles move less
+      double animationIntensity = 1.0 - (value - minBubbleRadius) / (maxBubbleRadius - minBubbleRadius);
+      animationIntensity = animationIntensity * 1.5 + 0.5; // Scale between 0.5 and 2.0
 
       return BubbleNode.leaf(
         value: value,
@@ -135,24 +232,26 @@ class _MoodCloudScreenState extends State<MoodCloudScreen> {
           color: count == 0
               ? const Color.fromARGB(255, 169, 169, 169)
               : bubble['color'],
-          child: GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => MoodDetailScreen(
-                      mood: label), // Navigate to MoodDetailScreen
-                ),
-              );
-            },
-            child: Center(
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: value * .3, // Text size proportional to bubble size
+          child: FloatingBubble(
+            intensity: animationIntensity,
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MoodDetailScreen(mood: label),
+                  ),
+                );
+              },
+              child: Center(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: value * 0.3,
+                  ),
                 ),
               ),
             ),
@@ -162,11 +261,13 @@ class _MoodCloudScreenState extends State<MoodCloudScreen> {
     }).toList();
 
     return Center(
-      child: BubbleChartLayout(
-        children: childNodes,
-        padding: 5,
-        duration: const Duration(milliseconds: 500), // Animation duration
-        radius: (node) => node.value * .8, // Adjusted scaling factor for radius
+      child: Container(
+        child: BubbleChartLayout(
+          children: childNodes,
+          padding: 5,
+          duration: const Duration(milliseconds: 500),
+          radius: (node) => node.value * 0.7,
+        ),
       ),
     );
   }

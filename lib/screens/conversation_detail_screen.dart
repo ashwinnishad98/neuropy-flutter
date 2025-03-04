@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ConversationDetailScreen extends StatelessWidget {
   final Map<String, dynamic> conversation;
@@ -9,19 +10,86 @@ class ConversationDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timestamp = conversation['timestamp'] as DateTime;
-    final transcription = conversation['transcription'] as String;
+    // Extract data from the new conversation structure
+    final timestamp = (conversation['timestamp'] as Timestamp).toDate();
+    final transcript = conversation['transcript'] as String;
     final emotions = (conversation['emotions'] ?? []) as List<dynamic>;
-    final events = (conversation['events'] ?? []) as List<dynamic>;
-    final people = (conversation['people'] ?? []) as List<dynamic>;
-    final locations = (conversation['locations'] ?? []) as List<dynamic>;
+    final associations = conversation['associations'] as Map<String, dynamic>?;
+    final emotionalAnalysis = conversation['emotional_analysis'] as String;
+    
+    // Extract location data (Environment in new schema)
+    List<String> locations = [];
+    if (associations != null && associations.containsKey('Environment')) {
+      final environmentMap = associations['Environment'] as Map<String, dynamic>?;
+      if (environmentMap != null) {
+        environmentMap.forEach((emotion, locationList) {
+          if (locationList is List) {
+            for (var location in locationList) {
+              if (location is String && location.isNotEmpty) {
+                locations.add('$location ($emotion)');
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // Extract people data
+    List<String> people = [];
+    if (associations != null && associations.containsKey('People')) {
+      final peopleMap = associations['People'] as Map<String, dynamic>?;
+      if (peopleMap != null) {
+        peopleMap.forEach((emotion, personList) {
+          if (personList is List) {
+            for (var person in personList) {
+              if (person is String && person.isNotEmpty) {
+                people.add('$person ($emotion)');
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // Extract events data
+    List<String> events = [];
+    if (associations != null && associations.containsKey('Events')) {
+      final eventsMap = associations['Events'] as Map<String, dynamic>?;
+      if (eventsMap != null) {
+        eventsMap.forEach((emotion, eventList) {
+          if (eventList is List) {
+            for (var event in eventList) {
+              if (event is String && event.isNotEmpty) {
+                events.add('$event ($emotion)');
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // Extract objects data
+    List<String> objects = [];
+    if (associations != null && associations.containsKey('Objects')) {
+      final objectsMap = associations['Objects'] as Map<String, dynamic>?;
+      if (objectsMap != null) {
+        objectsMap.forEach((emotion, objectList) {
+          if (objectList is List) {
+            for (var object in objectList) {
+              if (object is String && object.isNotEmpty) {
+                objects.add('$object ($emotion)');
+              }
+            }
+          }
+        });
+      }
+    }
 
     // Calculate mood proportions dynamically
     final moodProportions = calculateMoodProportions(emotions);
 
     return Scaffold(
-      backgroundColor:
-          const Color.fromARGB(255, 224, 224, 224), // Updated background color
+      backgroundColor: const Color.fromARGB(255, 224, 224, 224),
       appBar: AppBar(
         title: const Text('Conversation Details'),
         centerTitle: true,
@@ -40,7 +108,7 @@ class ConversationDetailScreen extends StatelessWidget {
             const SizedBox(height: 16),
 
             // Neuropy Summary Section
-            buildNeuropySummary(),
+            buildNeuropySummary(emotionalAnalysis ?? "No summary available"),
 
             const SizedBox(height: 16),
 
@@ -49,10 +117,10 @@ class ConversationDetailScreen extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // Transcription Section
+            // Transcript Section (renamed from Transcription)
             buildRoundedSection(
-              title: 'Transcription',
-              content: transcription,
+              title: 'Transcript',
+              content: transcript,
             ),
 
             const SizedBox(height: 16),
@@ -60,7 +128,7 @@ class ConversationDetailScreen extends StatelessWidget {
             // Location Section
             if (locations.isNotEmpty)
               buildRoundedSection(
-                title: 'Location',
+                title: 'Environment',
                 content: locations.join('\n'),
               ),
 
@@ -78,8 +146,17 @@ class ConversationDetailScreen extends StatelessWidget {
             // Events Section
             if (events.isNotEmpty)
               buildRoundedSection(
-                title: 'Event',
+                title: 'Events',
                 content: events.join('\n'),
+              ),
+              
+            const SizedBox(height: 16),
+              
+            // Objects Section
+            if (objects.isNotEmpty)
+              buildRoundedSection(
+                title: 'Objects',
+                content: objects.join('\n'),
               ),
           ],
         ),
@@ -96,8 +173,7 @@ class ConversationDetailScreen extends StatelessWidget {
       ),
       child: Center(
         child: Text(
-          DateFormat('EEEE, MMMM dd, yyyy')
-              .format(timestamp), // Format the date
+          DateFormat('EEEE, MMMM dd, yyyy').format(timestamp),
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -108,12 +184,11 @@ class ConversationDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget buildNeuropySummary() {
+  Widget buildNeuropySummary(String summary) {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: const Color.fromARGB(
-            255, 72, 191, 169), // Light teal color for the summary bubble
+        color: const Color.fromARGB(255, 72, 191, 169),
         borderRadius: BorderRadius.circular(15),
       ),
       child: Column(
@@ -129,14 +204,13 @@ class ConversationDetailScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold),
               ),
               const SizedBox(width: 4),
-              const Icon(Icons.auto_awesome, size: 18), // Sparkle icon
+              const Icon(Icons.auto_awesome, size: 18),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Today, you seemed joyful during the afternoon after discussing your hike! '
-            'Consider more outdoor activities to reduce anxiety, as seen from last week\'s improvement.',
-            style: TextStyle(fontSize: 15, color: Colors.white),
+          Text(
+            summary,
+            style: const TextStyle(fontSize: 15, color: Colors.white),
           ),
         ],
       ),
@@ -146,25 +220,33 @@ class ConversationDetailScreen extends StatelessWidget {
   List<Map<String, dynamic>> calculateMoodProportions(List<dynamic> emotions) {
     if (emotions.isEmpty) return [];
 
-    // Extract unique emotions by splitting at " (" and removing intensity
-    final uniqueEmotions = emotions.map((e) => e.split(' (')[0]).toSet();
+    // Count occurrences of each basic emotion
+    Map<String, int> emotionCounts = {};
+    for (var emotion in emotions) {
+      final basicEmotion = emotion['basic_emotion'] as String;
+      if (basicEmotion != 'Unknown') {
+        emotionCounts[basicEmotion] = (emotionCounts[basicEmotion] ?? 0) + 1;
+      }
+    }
 
-    // Calculate percentage for each emotion
-    final percentage = (100 / uniqueEmotions.length).round();
+    // Calculate total for percentage
+    final totalEmotions = emotionCounts.values.fold(0, (sum, count) => sum + count);
+    if (totalEmotions == 0) return [];
 
-    return uniqueEmotions.map((emotion) {
+    // Convert to list of maps with percentage values
+    return emotionCounts.entries.map((entry) {
+      final percentage = ((entry.value / totalEmotions) * 100).round();
       return {
-        'label': emotion,
+        'label': entry.key,
         'value': percentage,
-        'color': getEmotionColor(emotion),
+        'color': getEmotionColor(entry.key),
       };
     }).toList();
   }
 
-  Widget buildMoodProportionSection(
-      List<Map<String, dynamic>> moodProportions) {
+  Widget buildMoodProportionSection(List<Map<String, dynamic>> moodProportions) {
     if (moodProportions.isEmpty) {
-      return const SizedBox(); // Return an empty widget if there are no emotions
+      return const SizedBox();
     }
 
     return Container(
@@ -199,13 +281,14 @@ class ConversationDetailScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // Change from Row to Wrap to handle multiple emotions better
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
             children: moodProportions.map((mood) {
               return Text(
                 '${mood['label']} ${mood['value']}%',
-                style:
-                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
               );
             }).toList(),
           ),
@@ -243,7 +326,7 @@ class ConversationDetailScreen extends StatelessWidget {
       case 'joy':
         return const Color.fromARGB(255, 237, 156, 25);
       case 'trust':
-        return const Color.fromARGB(255, 166, 194, 50);
+        return const Color.fromARGB(255, 155, 61, 130);
       case 'fear':
         return const Color.fromARGB(255, 56, 155, 78);
       case 'surprise':

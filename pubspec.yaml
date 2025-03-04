@@ -38,6 +38,7 @@ dependencies:
   cloud_firestore: ^5.6.2
   bubble_chart:
   intl: ^0.17.0
+  fl_chart: ^0.40.0
 
 dev_dependencies:
   flutter_test:
@@ -70,6 +71,7 @@ flutter:
     - assets/disgust.png
     - assets/anger.png
     - assets/anticipation.png
+    - assets/graph.png
 
 
   # To add assets to your application, add an assets section, like this:
