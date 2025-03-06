@@ -8,6 +8,7 @@ import 'mood_cloud_screen.dart';
 import 'conversation_history.dart';
 import '../models/mood_entry.dart';
 import 'mood_graph_screen.dart';
+import '../utils/emotion_colors.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,18 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   MoodEntry? latestMoodEntry;
   bool isLoading = true;
+
+  // Map for converting database emotion names to display names
+  final Map<String, String> emotionDisplayNames = {
+    'Joy': 'Happy',
+    'Trust': 'Confident',
+    'Fear': 'Anxious',
+    'Surprise': 'Shock',
+    'Sadness': 'Sad',
+    'Disgust': 'Disgust',
+    'Anger': 'Annoyance',
+    'Anticipation': 'Curiosity',
+  };
 
   @override
   void initState() {
@@ -32,7 +45,6 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      // Try both collection names to see if that's the issue
       final String collectionName = "homehub emotions";
 
       final querySnapshot = await FirebaseFirestore.instance
@@ -41,11 +53,8 @@ class _HomeScreenState extends State<HomeScreen> {
           .limit(1)
           .get();
 
-      print("Query returned ${querySnapshot.docs.length} documents");
-
       if (querySnapshot.docs.isNotEmpty) {
         final data = querySnapshot.docs.first.data();
-        print("Found document with data: ${data.keys}");
 
         try {
           final entry = MoodEntry.fromMap(data);
@@ -57,7 +66,6 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         } catch (parseError) {
           print("Error parsing document: $parseError");
-          // Try to extract useful data even if full parsing fails
           setState(() {
             latestMoodEntry = MoodEntry(
               transcript: data['transcript'] ?? "Could not parse transcript",
@@ -90,14 +98,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Helper function to extract ~2 sentences from transcript
   String _formatTranscript(String transcript) {
-    // Split by sentence-ending punctuation but preserve the punctuation
     final sentences = transcript.split(RegExp(r'(?<=[.!?])\s+'));
 
     if (sentences.length <= 2) {
       return transcript;
     }
 
-    // Take first two sentences and add ellipsis with proper spacing
     return '${sentences[0]} ${sentences[1]}...';
   }
 
@@ -106,205 +112,258 @@ class _HomeScreenState extends State<HomeScreen> {
     return DateFormat('h:mma').format(timestamp).toLowerCase();
   }
 
-  // Get color for emotion
   Color _getColorForEmotion(String emotion) {
-    final Map<String, Color> emotionColors = {
-      'Joy': const Color.fromARGB(255, 237, 156, 25),
-      'Trust': const Color.fromARGB(255, 155, 61, 130),
-      'Fear': const Color.fromARGB(255, 56, 155, 78),
-      'Surprise': const Color.fromARGB(255, 38, 188, 159),
-      'Sadness': const Color.fromARGB(255, 62, 157, 245),
-      'Disgust': const Color.fromARGB(255, 120, 88, 255),
-      'Anger': const Color.fromARGB(255, 255, 92, 101),
-      'Anticipation': const Color.fromARGB(255, 252, 117, 87),
-    };
+    return EmotionColors.getColor(emotion);
+  }
 
-    return emotionColors[emotion] ?? Colors.grey;
+// New helper function to map emotion names for display
+  String _getDisplayEmotionName(String emotion) {
+    return emotionDisplayNames[emotion] ?? emotion;
+  }
+
+  Widget buildSoftCard({
+    required Widget child,
+    required VoidCallback onTap,
+    BorderRadius borderRadius = const BorderRadius.all(Radius.circular(23)),
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: borderRadius,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              spreadRadius: 0,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 6,
+              spreadRadius: 0,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: child,
+      ),
+    );
+  }
+
+  // Method to show the "Analysis coming soon" popup
+  void _showAnalysisComingSoonDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Coming Soon!'),
+          content: const Text(
+              'Analysis feature will be available in a future update.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mood Tracker'),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _getGreeting(),
-                style:
-                    const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                "Look into your mood trends",
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-              const SizedBox(height: 16),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const MoodGraphScreen()),
-                  );
-                },
-                child: Card(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  elevation: 4,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 1,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              Text(
-                                "Mood Record",
-                                style: TextStyle(
-                                    fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              SizedBox(height: 8),
-                              Text("View your mood insights!"),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          flex: 1,
-                          child: Image.asset(
-                            'assets/graph.png',
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const MoodCloudScreen()),
-                  );
-                },
-                child: Card(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  elevation: 4,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0, vertical: 24.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Factors Analysis",
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: 200,
-                          child: BubbleChartWidget(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const ConversationHistory()),
-                  );
-                },
-                child: Card(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  elevation: 4,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Mood Journal",
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        isLoading
-                            ? const Center(child: CircularProgressIndicator())
-                            : latestMoodEntry == null
-                                ? const Text(
-                                    "No journal entries yet.",
-                                    style: TextStyle(
-                                        fontSize: 14, color: Colors.grey),
-                                  )
-                                : Text(
-                                    _formatTranscript(
-                                        latestMoodEntry!.transcript),
-                                    style: const TextStyle(
-                                        fontSize: 14, color: Colors.grey),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                        const SizedBox(height: 8),
-                        isLoading || latestMoodEntry == null
-                            ? const SizedBox()
-                            : Row(
-                                children: [
-                                  // First filter out 'Unknown' emotions, then deduplicate, then take up to 3
-                                  ...latestMoodEntry!.emotions
-                                      .where((emotion) => 
-                                          emotion['basic_emotion'] != null && 
-                                          emotion['basic_emotion'] != 'Unknown' &&
-                                          emotion['basic_emotion'].toString().isNotEmpty)
-                                      // Create a new list with unique emotions by basic_emotion value
-                                      .fold<List<Map<String, dynamic>>>([], (uniqueList, emotion) {
-                                        if (!uniqueList.any((e) => e['basic_emotion'] == emotion['basic_emotion'])) {
-                                          uniqueList.add(emotion);
-                                        }
-                                        return uniqueList;
-                                      })
-                                      .take(2)
-                                      .map(
-                                        (emotion) => Padding(
-                                          padding: const EdgeInsets.only(right: 8.0),
-                                          child: Chip(
-                                            label: Text(emotion['basic_emotion']),
-                                            backgroundColor: _getColorForEmotion(emotion['basic_emotion']),
-                                            labelStyle: const TextStyle(color: Colors.white),
-                                          ),
-                                        ),
-                                      )
-                                      .toList(),
-                                  const Spacer(),
-                                  Text(_formatTime(latestMoodEntry!.timestamp),
-                                      style: const TextStyle(
-                                          fontSize: 12, color: Colors.grey)),
-                                ],
-                              ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+      extendBodyBehindAppBar: true,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              const Color.fromARGB(255, 131, 229, 211),
+              const Color.fromARGB(255, 208, 230, 247),
+              const Color.fromARGB(255, 197, 185, 245),
             ],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 8),
+                  Text(
+                    _getGreeting(),
+                    style: const TextStyle(
+                        fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  buildSoftCard(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const MoodGraphScreen()),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 1,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  "Mood Record",
+                                  style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                SizedBox(height: 8),
+                                Text("View your mood insights!"),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            flex: 1,
+                            child: Image.asset(
+                              'assets/graph.png',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  buildSoftCard(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const MoodCloudScreen()),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0, vertical: 24.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Factors Analysis",
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 200,
+                            child: BubbleChartWidget(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  buildSoftCard(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ConversationHistory()),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Mood Journal",
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          isLoading
+                              ? const Center(child: CircularProgressIndicator())
+                              : latestMoodEntry == null
+                                  ? const Text(
+                                      "No journal entries yet.",
+                                      style: TextStyle(
+                                          fontSize: 14, color: Colors.grey),
+                                    )
+                                  : Text(
+                                      _formatTranscript(
+                                          latestMoodEntry!.transcript),
+                                      style: const TextStyle(
+                                          fontSize: 14, color: Colors.grey),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                          const SizedBox(height: 8),
+                          isLoading || latestMoodEntry == null
+                              ? const SizedBox()
+                              : Row(
+                                  children: [
+                                    ...latestMoodEntry!.emotions
+                                        .where((emotion) =>
+                                            emotion['basic_emotion'] != null &&
+                                            emotion['basic_emotion'] !=
+                                                'Unknown' &&
+                                            emotion['basic_emotion']
+                                                .toString()
+                                                .isNotEmpty)
+                                        .fold<List<Map<String, dynamic>>>([],
+                                            (uniqueList, emotion) {
+                                          if (!uniqueList.any((e) =>
+                                              e['basic_emotion'] ==
+                                              emotion['basic_emotion'])) {
+                                            uniqueList.add(emotion);
+                                          }
+                                          return uniqueList;
+                                        })
+                                        .take(2)
+                                        .map(
+                                          (emotion) => Padding(
+                                            padding: const EdgeInsets.only(
+                                                right: 8.0),
+                                            child: Chip(
+                                              label: Text(
+                                                  _getDisplayEmotionName(
+                                                      emotion[
+                                                          'basic_emotion'])),
+                                              backgroundColor:
+                                                  _getColorForEmotion(
+                                                      emotion['basic_emotion']),
+                                              labelStyle: const TextStyle(
+                                                  color: Colors.white),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                    const Spacer(),
+                                    Text(
+                                        _formatTime(latestMoodEntry!.timestamp),
+                                        style: const TextStyle(
+                                            fontSize: 12, color: Colors.grey)),
+                                  ],
+                                ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -351,7 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
               );
               break;
             case 3:
-              // No functionality for Analysis button yet
+              _showAnalysisComingSoonDialog();
               break;
           }
         },
@@ -377,44 +436,44 @@ class BubbleChartWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> bubbles = [
       {
-        'label': 'Joy',
-        'color': const Color.fromARGB(255, 237, 156, 25),
-        'value': 50,
+        'label': 'Happy',
+        'color': EmotionColors.joy,
+        'value': 39,
       },
       {
-        'label': 'Trust',
-        'color': const Color.fromARGB(255, 155, 61, 130),
-        'value': 40,
+        'label': 'Confident',
+        'color': EmotionColors.trust,
+        'value': 48,
       },
       {
-        'label': 'Fear',
-        'color': const Color.fromARGB(255, 56, 155, 78),
+        'label': 'Anxious',
+        'color': EmotionColors.fear,
+        'value': 31,
+      },
+      {
+        'label': 'Shock',
+        'color': EmotionColors.surprise,
         'value': 25,
       },
       {
-        'label': 'Surprise',
-        'color': const Color.fromARGB(255, 38, 188, 159),
-        'value': 30,
-      },
-      {
-        'label': 'Sadness',
-        'color': const Color.fromARGB(255, 62, 157, 245),
-        'value': 30,
+        'label': 'Sad',
+        'color': EmotionColors.sadness,
+        'value': 33,
       },
       {
         'label': 'Disgust',
-        'color': const Color.fromARGB(255, 120, 88, 255),
-        'value': 30,
+        'color': EmotionColors.disgust,
+        'value': 37,
       },
       {
-        'label': 'Anger',
-        'color': const Color.fromARGB(255, 255, 92, 101),
-        'value': 35,
+        'label': 'Annoyance',
+        'color': EmotionColors.anger,
+        'value': 43,
       },
       {
-        'label': 'Anticipation',
-        'color': const Color.fromARGB(255, 252, 117, 87),
-        'value': 45,
+        'label': 'Curiosity',
+        'color': EmotionColors.anticipation,
+        'value': 41,
       },
     ];
 
@@ -430,7 +489,10 @@ class BubbleChartWidget extends StatelessWidget {
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: bubble['value'].toDouble() * 0.35,
+                fontSize: (bubble['label'] == 'Annoyance' ||
+                        bubble['label'] == 'Confident')
+                    ? bubble['value'].toDouble() * 0.27
+                    : bubble['value'].toDouble() * 0.32,
               ),
             ),
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bubble_chart/bubble_chart.dart';
 import 'dart:math';
+import '../utils/emotion_colors.dart';
 
 class MoodDetailScreen extends StatefulWidget {
   final String mood;
@@ -14,21 +15,37 @@ class MoodDetailScreen extends StatefulWidget {
 
 class _MoodDetailScreenState extends State<MoodDetailScreen> {
   bool isLoading = true;
-  Map<String, Map<String, int>> categorizedCounts =
-      {}; // Categorized counts for each factor
-  String? selectedFactor; // Currently selected factor (e.g., "event", "people")
+  Map<String, Map<String, int>> categorizedCounts = {};
+  String? selectedFactor;
+  String? errorMessage;
+  int processedDocuments = 0;
+  int matchedDocuments = 0;
 
-  // Define unique colors for each mood
   final Map<String, Color> moodColors = {
-    'Joy': const Color.fromARGB(255, 237, 156, 25),
-    'Trust': const Color.fromARGB(255, 155, 61, 130),
-    'Fear': const Color.fromARGB(255, 56, 155, 78),
-    'Surprise': const Color.fromARGB(255, 38, 188, 159),
-    'Sadness': const Color.fromARGB(255, 62, 157, 245),
-    'Disgust': const Color.fromARGB(255, 120, 88, 255),
-    'Anger': const Color.fromARGB(255, 255, 92, 101),
-    'Anticipation': const Color.fromARGB(255, 252, 117, 87),
+    'Joy': EmotionColors.joy,
+    'Trust': EmotionColors.trust,
+    'Fear': EmotionColors.fear,
+    'Surprise': EmotionColors.surprise,
+    'Sadness': EmotionColors.sadness,
+    'Disgust': EmotionColors.disgust,
+    'Anger': EmotionColors.anger,
+    'Anticipation': EmotionColors.anticipation,
   };
+
+  final Map<String, String> emotionDisplayNames = {
+    'Joy': 'Happy',
+    'Trust': 'Confident',
+    'Fear': 'Anxious',
+    'Surprise': 'Shock',
+    'Sadness': 'Sad',
+    'Disgust': 'Disgust',
+    'Anger': 'Annoyance',
+    'Anticipation': 'Curiosity',
+  };
+
+  String getEmotionDisplayName(String dbName) {
+    return emotionDisplayNames[dbName] ?? dbName;
+  }
 
   @override
   void initState() {
@@ -39,104 +56,60 @@ class _MoodDetailScreenState extends State<MoodDetailScreen> {
   Future<void> fetchMoodData() async {
     setState(() {
       isLoading = true;
+      errorMessage = null;
+      processedDocuments = 0;
+      matchedDocuments = 0;
     });
 
     try {
       final QuerySnapshot snapshot =
-          await FirebaseFirestore.instance.collection('homehub').get();
+          await FirebaseFirestore.instance.collection('homehub emotions').get();
 
-      // Initialize categorized counts
       final Map<String, Map<String, int>> tempCategorizedCounts = {
         'event': {},
         'people': {},
-        'health': {}, // Empty for now
+        'health': {},
         'environment': {},
-        'object': {}, // Empty for now
-        'locations': {},
+        'object': {},
       };
 
+      // Process each document
       for (var doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        final List<dynamic> emotions = data['emotions'] ?? [];
+        processedDocuments++;
 
-        // Check if the record matches the selected mood
-        if (emotions.any((emotion) => emotion.startsWith(widget.mood))) {
-          // Count events
-          if (data['events'] != null) {
-            for (var event in data['events']) {
-              if (event != null && event is String && event.isNotEmpty) {
-                tempCategorizedCounts['event']![event] =
-                    (tempCategorizedCounts['event']![event] ?? 0) + 1;
-              }
+        if (data['associations'] is Map<String, dynamic> &&
+            data['emotions'] is Map<String, dynamic>) {
+          final Map<String, dynamic> emotions = data['emotions'];
+
+          bool documentHasMood = false;
+
+          emotions.forEach((emotionName, emotionDetails) {
+            if (emotionDetails is Map<String, dynamic> &&
+                emotionDetails['basic_emotion'] == widget.mood) {
+              documentHasMood = true;
             }
-          }
+          });
 
-          // Count people
-          if (data['people'] != null) {
-            for (var person in data['people']) {
-              if (person != null &&
-                  person is String &&
-                  person.isNotEmpty &&
-                  person !=
-                      "No specific names of people mentioned in the text.") {
-                tempCategorizedCounts['people']![person] =
-                    (tempCategorizedCounts['people']![person] ?? 0) + 1;
-              }
-            }
-          }
+          if (documentHasMood) {
+            matchedDocuments++;
 
-          // Count environment_conditions
-          if (data['environment_conditions'] != null) {
-            for (var condition in data['environment_conditions']) {
-              if (condition != null &&
-                  condition is String &&
-                  condition.isNotEmpty &&
-                  condition !=
-                      "No specific environment conditions mentioned in the text.") {
-                tempCategorizedCounts['environment']![condition] =
-                    (tempCategorizedCounts['environment']![condition] ?? 0) + 1;
-              }
-            }
-          }
+            // Process each factor category
+            final Map<String, dynamic> associations = data['associations'];
 
-          // Count locations
-          if (data['locations'] != null) {
-            for (var location in data['locations']) {
-              if (location != null &&
-                  location is String &&
-                  location.isNotEmpty &&
-                  location != "No specific locations mentioned in the text.") {
-                tempCategorizedCounts['locations']![location] =
-                    (tempCategorizedCounts['locations']![location] ?? 0) + 1;
-              }
-            }
-          }
-
-          // Count Health
-          if (data['health'] != null) {
-            for (var health in data['health']) {
-              if (health != null &&
-                  health is String &&
-                  health.isNotEmpty &&
-                  health !=
-                      "No specific health conditions mentioned in the text.") {
-                tempCategorizedCounts['health']![health] =
-                    (tempCategorizedCounts['health']![health] ?? 0) + 1;
-              }
-            }
-          }
-
-          // Count Object
-          if (data['object'] != null) {
-            for (var object in data['object']) {
-              if (object != null &&
-                  object is String &&
-                  object.isNotEmpty &&
-                  object !=
-                      "No specific object conditions mentioned in the text.") {
-                tempCategorizedCounts['object']![object] =
-                    (tempCategorizedCounts['object']![object] ?? 0) + 1;
-              }
+            try {
+              _processFactorCategory(
+                  associations, 'Events', 'event', tempCategorizedCounts);
+              _processFactorCategory(
+                  associations, 'People', 'people', tempCategorizedCounts);
+              _processFactorCategory(
+                  associations, 'Health', 'health', tempCategorizedCounts);
+              _processFactorCategory(associations, 'Environment', 'environment',
+                  tempCategorizedCounts);
+              _processFactorCategory(
+                  associations, 'Objects', 'object', tempCategorizedCounts);
+            } catch (e) {
+              print("Error processing document: $e");
             }
           }
         }
@@ -145,12 +118,53 @@ class _MoodDetailScreenState extends State<MoodDetailScreen> {
       setState(() {
         categorizedCounts = tempCategorizedCounts;
         isLoading = false;
+
+        // If no matches were found, set an error message
+        if (matchedDocuments == 0) {
+          errorMessage =
+              "No documents found containing ${widget.mood} emotion.";
+        }
       });
     } catch (e) {
-      print('Error fetching ${widget.mood} data: $e');
       setState(() {
         isLoading = false;
+        errorMessage = "Error: $e";
       });
+    }
+  }
+
+  // Helper method to process a factor category with better error handling
+  void _processFactorCategory(
+      Map<String, dynamic> associations,
+      String firebaseKey,
+      String localKey,
+      Map<String, Map<String, int>> tempCounts) {
+    if (!associations.containsKey(firebaseKey)) {
+      return;
+    }
+
+    // Get the category map (e.g., Events, People, etc.)
+    var categoryMap = associations[firebaseKey];
+    if (!(categoryMap is Map<String, dynamic>)) {
+      return;
+    }
+
+    // Check if our specific mood exists in this category
+    if (!categoryMap.containsKey(widget.mood)) {
+      return;
+    }
+
+    // Get the list of items for this mood
+    var itemsList = categoryMap[widget.mood];
+    if (!(itemsList is List)) {
+      return;
+    }
+
+    // Process each item in the list
+    for (var item in itemsList) {
+      if (item is String && item.isNotEmpty) {
+        tempCounts[localKey]![item] = (tempCounts[localKey]![item] ?? 0) + 1;
+      }
     }
   }
 
@@ -164,9 +178,12 @@ class _MoodDetailScreenState extends State<MoodDetailScreen> {
         (screenWidth < screenHeight ? screenWidth : screenHeight) / 4 - 25;
 
     // Get counts for the selected factor or all factors if none is selected
-    final Map<String, int> counts = selectedFactor == null
+    Map<String, int> allCounts = selectedFactor == null
         ? _getAllCounts()
         : categorizedCounts[selectedFactor!] ?? {};
+
+    // Sort items by count in descending order and take top 10
+    final Map<String, int> counts = _getTop10Counts(allCounts);
 
     // Check if there are no bubbles to display and show a message instead
     if (counts.isEmpty && selectedFactor != null) {
@@ -208,7 +225,7 @@ class _MoodDetailScreenState extends State<MoodDetailScreen> {
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: value * .2,
+                fontSize: value * 0.22,
               ),
             ),
           ),
@@ -226,6 +243,21 @@ class _MoodDetailScreenState extends State<MoodDetailScreen> {
     );
   }
 
+  // Helper method to get the top 10 items by count
+  Map<String, int> _getTop10Counts(Map<String, int> allCounts) {
+    // Convert map entries to a list
+    final entries = allCounts.entries.toList();
+
+    // Sort the entries by count (value) in descending order
+    entries.sort((a, b) => b.value.compareTo(a.value));
+
+    // Take the top 10 entries (or fewer if there aren't 10)
+    final topEntries = entries.take(10).toList();
+
+    // Convert back to a map
+    return Map.fromEntries(topEntries);
+  }
+
   Map<String, int> _getAllCounts() {
     final Map<String, int> allCounts = {};
     categorizedCounts.forEach((_, counts) => allCounts.addAll(counts));
@@ -241,15 +273,13 @@ class _MoodDetailScreenState extends State<MoodDetailScreen> {
     final factors = [
       {'label': 'Life Event', 'key': 'event'},
       {'label': 'Health', 'key': 'health'},
-      {'label': 'Weather', 'key': 'environment'},
+      {'label': 'Environment', 'key': 'environment'},
       {'label': 'Objects', 'key': 'object'},
       {'label': 'People', 'key': 'people'},
-      {'label': 'Locations', 'key': 'locations'}
     ];
 
     return Container(
-      height:
-          MediaQuery.of(context).size.height / 3, // Bottom third of the screen
+      height: MediaQuery.of(context).size.height / 3,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.only(
@@ -279,7 +309,6 @@ class _MoodDetailScreenState extends State<MoodDetailScreen> {
             ),
             const SizedBox(height: 10),
             Expanded(
-              // Ensure the ListView is scrollable
               child: ListView.builder(
                 itemCount: factors.length,
                 itemBuilder: (context, index) {
@@ -289,9 +318,7 @@ class _MoodDetailScreenState extends State<MoodDetailScreen> {
                   return GestureDetector(
                     onTap: () {
                       setState(() {
-                        selectedFactor = isSelected
-                            ? null
-                            : factor['key']; // Toggle selection
+                        selectedFactor = isSelected ? null : factor['key'];
                       });
                     },
                     child: Container(
@@ -346,28 +373,75 @@ class _MoodDetailScreenState extends State<MoodDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-          color: Colors.black,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : errorMessage != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: fetchMoodData,
+                              child: const Text("Retry"),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _isEmpty(categorizedCounts)
+                        ? Center(
+                            child: Text(
+                              "No factors found for ${getEmotionDisplayName(widget.mood)}",
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          )
+                        : Column(
+                            children: [
+                              const SizedBox(height: 48),
+                              Center(
+                                child: Text(
+                                  getEmotionDisplayName(widget.mood),
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Expanded(child: _buildBubbleChart()),
+                              _buildFactorChips(),
+                            ],
+                          ),
+
+            // Back button overlay
+            Positioned(
+              top: 8,
+              left: 8,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+                color: Colors.black,
+              ),
+            ),
+          ],
         ),
-        title: Text(widget.mood),
-        centerTitle: true,
-        backgroundColor: const Color.fromARGB(255, 240, 240, 240),
-        elevation: 0,
-        foregroundColor: Colors.black,
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : categorizedCounts.isEmpty
-              ? const Center(child: Text("No data available"))
-              : Column(
-                  children: [
-                    Expanded(child: _buildBubbleChart()),
-                    _buildFactorChips(), // Add chips below the bubble chart
-                  ],
-                ),
     );
+  }
+
+  bool _isEmpty(Map<String, Map<String, int>> categorizedCounts) {
+    int totalItems = 0;
+    categorizedCounts.forEach((_, items) {
+      totalItems += items.length;
+    });
+    return totalItems == 0;
   }
 }

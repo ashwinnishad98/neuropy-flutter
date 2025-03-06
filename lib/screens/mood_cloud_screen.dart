@@ -4,72 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bubble_chart/bubble_chart.dart';
 import 'package:neuropy_app/screens/factor_detail_screen.dart';
 import 'package:neuropy_app/screens/mood_detail_screen.dart';
-
-// Custom widget for animating bubbles
-class FloatingBubble extends StatefulWidget {
-  final Widget child;
-  final double intensity; // Controls how much the bubble moves
-
-  const FloatingBubble({
-    Key? key,
-    required this.child,
-    this.intensity = 2.0,
-  }) : super(key: key);
-
-  @override
-  _FloatingBubbleState createState() => _FloatingBubbleState();
-}
-
-class _FloatingBubbleState extends State<FloatingBubble>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<Offset> _offsetAnimation;
-  
-  // Create a random offset for each bubble to make them move asynchronously
-  final double _randomOffset = Random().nextDouble() * 2 * pi;
-
-  @override
-  void initState() {
-    super.initState();
-    
-    // Create an animation controller with a longer duration for slow, gentle movement
-    _controller = AnimationController(
-      duration: Duration(milliseconds: 3000 + Random().nextInt(2000)), // Random duration for variety
-      vsync: this,
-    )..repeat(reverse: true); // Automatically reverse and repeat
-
-    // Create a curved animation that moves slightly up and down
-    _offsetAnimation = Tween<Offset>(
-      begin: Offset(0, -0.01 * widget.intensity),
-      end: Offset(0, 0.01 * widget.intensity),
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      // Use a sine wave curve for smooth, natural movement
-      curve: Curves.elasticInOut,
-    ));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Apply a slight delay based on random offset to make bubbles move asynchronously
-    Future.delayed(Duration(milliseconds: (_randomOffset * 300).toInt()), () {
-      if (mounted) {
-        _controller.forward();
-      }
-    });
-
-    return SlideTransition(
-      position: _offsetAnimation,
-      child: widget.child,
-    );
-  }
-}
+import '../utils/emotion_colors.dart';
 
 class MoodCloudScreen extends StatefulWidget {
   const MoodCloudScreen({super.key});
@@ -85,36 +20,44 @@ class _MoodCloudScreenState extends State<MoodCloudScreen> {
 
   final List<Map<String, dynamic>> bubbles = [
     {
-      'label': 'Joy',
-      'color': const Color.fromARGB(255, 237, 156, 25),
+      'label': 'Happy',
+      'dbName': 'Joy',
+      'color': EmotionColors.joy,
     },
     {
       'label': 'Trust',
-      'color': const Color.fromARGB(255, 155, 61, 130),
+      'dbName': 'Trust',
+      'color': EmotionColors.trust,
     },
     {
       'label': 'Fear',
-      'color': const Color.fromARGB(255, 56, 155, 78),
+      'dbName': 'Fear',
+      'color': EmotionColors.fear,
     },
     {
       'label': 'Surprise',
-      'color': const Color.fromARGB(255, 38, 188, 159),
+      'dbName': 'Surprise',
+      'color': EmotionColors.surprise,
     },
     {
       'label': 'Sadness',
-      'color': const Color.fromARGB(255, 62, 157, 245),
+      'dbName': 'Sadness',
+      'color': EmotionColors.sadness,
     },
     {
       'label': 'Disgust',
-      'color': const Color.fromARGB(255, 120, 88, 255),
+      'dbName': 'Disgust',
+      'color': EmotionColors.disgust,
     },
     {
       'label': 'Anger',
-      'color': const Color.fromARGB(255, 255, 92, 101),
+      'dbName': 'Anger',
+      'color': EmotionColors.anger,
     },
     {
-      'label': 'Anticipation',
-      'color': const Color.fromARGB(255, 252, 117, 87),
+      'label': 'Curiosity',
+      'dbName': 'Anticipation',
+      'color': EmotionColors.anticipation,
     },
   ];
 
@@ -131,18 +74,49 @@ class _MoodCloudScreenState extends State<MoodCloudScreen> {
 
     try {
       final QuerySnapshot snapshot =
-          await FirebaseFirestore.instance.collection('emotions').get();
+          await FirebaseFirestore.instance.collection('homehub emotions').get();
 
       Map<String, int> counts = {};
+      // Initialize counts for all emotions to 0, using dbName for the keys
       for (var bubble in bubbles) {
-        counts[bubble['label']] = 0;
+        counts[bubble['dbName']] = 0;
       }
 
+      // Process the documents
       for (var doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
-        final emotion = data['emotion'] as String;
-        if (counts.containsKey(emotion)) {
-          counts[emotion] = (counts[emotion] ?? 0) + 1;
+
+        // Check if 'emotions' exists in the document
+        if (data.containsKey('emotions')) {
+          final emotions = data['emotions'];
+
+          if (emotions is Map<String, dynamic>) {
+            emotions.forEach((key, value) {
+              if (value is Map<String, dynamic> &&
+                  value.containsKey('basic_emotion') &&
+                  value['basic_emotion'] != null &&
+                  value['basic_emotion'] != 'Unknown') {
+                final String basicEmotion = value['basic_emotion'];
+                // Increment count for this emotion
+                if (counts.containsKey(basicEmotion)) {
+                  counts[basicEmotion] = (counts[basicEmotion] ?? 0) + 1;
+                }
+              }
+            });
+          } else if (emotions is List<dynamic>) {
+            for (var emotion in emotions) {
+              if (emotion is Map<String, dynamic> &&
+                  emotion.containsKey('basic_emotion') &&
+                  emotion['basic_emotion'] != null &&
+                  emotion['basic_emotion'] != 'Unknown') {
+                final String basicEmotion = emotion['basic_emotion'];
+                // Increment count for this emotion
+                if (counts.containsKey(basicEmotion)) {
+                  counts[basicEmotion] = (counts[basicEmotion] ?? 0) + 1;
+                }
+              }
+            }
+          }
         }
       }
 
@@ -151,11 +125,19 @@ class _MoodCloudScreenState extends State<MoodCloudScreen> {
         isLoading = false;
       });
     } catch (e) {
-      print('Error fetching emotion counts: $e');
       setState(() {
         isLoading = false;
       });
     }
+  }
+
+  void _navigateToMoodDetail(String dbName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MoodDetailScreen(mood: dbName),
+      ),
+    );
   }
 
   Widget _buildMoodView() {
@@ -167,90 +149,79 @@ class _MoodCloudScreenState extends State<MoodCloudScreen> {
     final int maxCount = emotionCounts.values.isNotEmpty
         ? emotionCounts.values.reduce((a, b) => a > b ? a : b)
         : 1;
-    
+
     final int minCount = emotionCounts.values.isNotEmpty
         ? emotionCounts.values.reduce((a, b) => a < b ? a : b)
         : 0;
 
-    // Much larger gap between min and max radius for better visual differentiation
-    const double maxBubbleRadius = 120.0; // Increased maximum radius
-    const double minBubbleRadius = 35.0; // Decreased minimum radius
-
     // Get screen dimensions
     final double screenWidth = MediaQuery.of(context).size.width;
     final double screenHeight = MediaQuery.of(context).size.height;
-    
-    // More conservative max allowed radius
-    final double maxAllowedRadius = (screenWidth < screenHeight ? screenWidth : screenHeight) / 4;
+
+    // Calculate available space for the chart area
+    final double chartAreaSize = min(screenWidth, screenHeight - 160);
+
+    final double baseMinBubbleRadius = chartAreaSize / 9;
+    final double baseMaxBubbleRadius = chartAreaSize / 3.5;
+
+    // Count number of non-zero emotions to help with spacing
+    final int activeEmotionCount =
+        emotionCounts.values.where((count) => count > 0).length;
 
     // Create child nodes for the bubble chart
     final List<BubbleNode> childNodes = bubbles.map((bubble) {
-      final String label = bubble['label'];
-      final int count = emotionCounts[label] ?? 0;
+      final String displayLabel = bubble['label'];
+      final String dbName =
+          bubble['dbName']; // Get the database name to look up counts
+      final int count = emotionCounts[dbName] ?? 0;
 
-      // Enhanced scaling logic for small counts
+      // Calculate scaled value between 0.0 and 1.0
       double scaledValue;
-      
-      if (maxCount == minCount) {
-        // If all counts are equal, use a middle value
-        scaledValue = 0.7;
-      } else if (count == 0) {
-        // Special case for zero counts
-        scaledValue = 0.2; // Make zero counts even smaller
-      } else {
-        // For very small ranges (like 1-4), we need a more aggressive approach
-        
-        // Start with a higher base for non-zero values
-        double baseValue = 0.3; 
-        
-        // Add an amplified proportion of the range
-        // This creates bigger jumps between values
-        double amplifier = 1.5; // Amplification factor
-        double proportion = (count - minCount) / max(1, maxCount - minCount);
-        
-        // Apply amplified scaling
-        scaledValue = baseValue + (0.6 * proportion * amplifier);
-        
-        // Clamp to ensure we don't exceed 1.0
-        scaledValue = min(1.0, scaledValue);
+
+      // Special case: if all counts are the same or there's only one non-zero count
+      if (maxCount == minCount || activeEmotionCount <= 1) {
+        if (count == 0) {
+          scaledValue = 0.35;
+        } else {
+          scaledValue = 0.80;
+        }
+      }
+      // Normal case: scale based on counts with enhanced differentiation
+      else {
+        if (count == 0) {
+          scaledValue = 0.35;
+        } else {
+          double normalizedCount =
+              (count - minCount) / max(1.0, maxCount - minCount);
+          scaledValue = 0.42 + (0.5 * sqrt(normalizedCount));
+        }
       }
 
-      // Scale bubble size between min and max radius
-      double value = scaledValue * (maxBubbleRadius - minBubbleRadius) + minBubbleRadius;
-      
-      // Constrain value to fit within maxAllowedRadius
-      value = value.clamp(minBubbleRadius, maxAllowedRadius);
-      
-      // Calculate animation intensity based on bubble size
-      // Smaller bubbles move more, larger bubbles move less
-      double animationIntensity = 1.0 - (value - minBubbleRadius) / (maxBubbleRadius - minBubbleRadius);
-      animationIntensity = animationIntensity * 1.5 + 0.5; // Scale between 0.5 and 2.0
+      // Apply final radius calculation
+      double value = baseMinBubbleRadius +
+          (scaledValue * (baseMaxBubbleRadius - baseMinBubbleRadius));
 
       return BubbleNode.leaf(
         value: value,
         options: BubbleOptions(
           color: count == 0
-              ? const Color.fromARGB(255, 169, 169, 169)
+              ? const Color.fromARGB(255, 169, 169, 169).withOpacity(0.7)
               : bubble['color'],
-          child: FloatingBubble(
-            intensity: animationIntensity,
-            child: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MoodDetailScreen(mood: label),
-                  ),
-                );
-              },
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(value),
+              onTap: () => _navigateToMoodDetail(dbName),
+              splashColor: Colors.white.withOpacity(0.2),
+              highlightColor: Colors.white.withOpacity(0.1),
               child: Center(
                 child: Text(
-                  label,
+                  displayLabel, // Use display label for showing on screen
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: value * 0.3,
+                    fontSize: value * 0.22,
                   ),
                 ),
               ),
@@ -260,102 +231,128 @@ class _MoodCloudScreenState extends State<MoodCloudScreen> {
       );
     }).toList();
 
-    return Center(
-      child: Container(
-        child: BubbleChartLayout(
-          children: childNodes,
-          padding: 5,
-          duration: const Duration(milliseconds: 500),
-          radius: (node) => node.value * 0.7,
+    return LayoutBuilder(builder: (context, constraints) {
+      return Center(
+        child: SizedBox(
+          width: chartAreaSize,
+          height: chartAreaSize,
+          child: BubbleChartLayout(
+            children: childNodes,
+            padding: 9,
+            duration: const Duration(milliseconds: 500),
+            radius: (node) => node.value * 0.57,
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mood and Factor'),
-        centerTitle: true,
-        backgroundColor: const Color.fromARGB(255, 224, 224, 224),
-        elevation: 0,
-        foregroundColor: Colors.black,
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedToggleIndex = 0;
-                    });
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: selectedToggleIndex == 0
-                          ? Colors.black
-                          : Colors.white,
-                      borderRadius: const BorderRadius.horizontal(
-                          left: Radius.circular(20)),
-                      border: Border.all(color: Colors.black),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 30, vertical: 10),
-                    child: Text(
-                      "Mood",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: selectedToggleIndex == 0
-                            ? Colors.white
-                            : Colors.black,
-                      ),
-                    ),
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color.fromARGB(255, 190, 246, 236),
+              Color.fromARGB(255, 214, 231, 246),
+              Color.fromARGB(255, 216, 207, 250),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 8.0, top: 8.0),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
                   ),
                 ),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedToggleIndex = 1;
-                    });
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: selectedToggleIndex == 1
-                          ? Colors.black
-                          : Colors.white,
-                      borderRadius: const BorderRadius.horizontal(
-                          right: Radius.circular(20)),
-                      border: Border.all(color: Colors.black),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 30, vertical: 10),
-                    child: Text(
-                      "Factor",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: selectedToggleIndex == 1
-                            ? Colors.white
-                            : Colors.black,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedToggleIndex = 0;
+                        });
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: selectedToggleIndex == 0
+                              ? Colors.black
+                              : Colors.white,
+                          borderRadius: const BorderRadius.horizontal(
+                              left: Radius.circular(20)),
+                          border: Border.all(color: Colors.black),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 30, vertical: 10),
+                        child: Text(
+                          "Mood",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: selectedToggleIndex == 0
+                                ? Colors.white
+                                : Colors.black,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedToggleIndex = 1;
+                        });
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: selectedToggleIndex == 1
+                              ? Colors.black
+                              : Colors.white,
+                          borderRadius: const BorderRadius.horizontal(
+                              right: Radius.circular(20)),
+                          border: Border.all(color: Colors.black),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 30, vertical: 10),
+                        child: Text(
+                          "Factor",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: selectedToggleIndex == 1
+                                ? Colors.white
+                                : Colors.black,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              Expanded(
+                child: selectedToggleIndex == 0
+                    ? _buildMoodView()
+                    : _buildFactorView(),
+              ),
+            ],
           ),
-          Expanded(
-            child: selectedToggleIndex == 0
-                ? _buildMoodView()
-                : _buildFactorView(),
-          ),
-        ],
+        ),
       ),
     );
   }

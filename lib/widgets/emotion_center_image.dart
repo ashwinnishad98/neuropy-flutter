@@ -4,7 +4,7 @@ import '../models/emotion.dart';
 class EmotionCenterImage extends StatelessWidget {
   final int selectedEmotionIndex;
   final List<Emotion> emotions;
-  final bool isVisible;  // Add this parameter
+  final bool isVisible;
 
   const EmotionCenterImage(this.selectedEmotionIndex, this.emotions, 
       {Key? key, this.isVisible = true}) : super(key: key);

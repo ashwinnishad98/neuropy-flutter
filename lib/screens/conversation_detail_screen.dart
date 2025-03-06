@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/emotion_colors.dart';
 
 class ConversationDetailScreen extends StatelessWidget {
   final Map<String, dynamic> conversation;
@@ -8,19 +9,37 @@ class ConversationDetailScreen extends StatelessWidget {
   const ConversationDetailScreen({Key? key, required this.conversation})
       : super(key: key);
 
+  // Map for converting database emotion names to display names
+  static const Map<String, String> emotionDisplayNames = {
+    'Joy': 'Happy',
+    'Trust': 'Confident',
+    'Fear': 'Anxious',
+    'Surprise': 'Shock',
+    'Sadness': 'Sad',
+    'Disgust': 'Disgust', // No change
+    'Anger': 'Annoyance',
+    'Anticipation': 'Curiosity',
+  };
+
+  // Get display name for an emotion
+  static String getEmotionDisplayName(String dbName) {
+    return emotionDisplayNames[dbName] ?? dbName;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Extract data from the new conversation structure
+    // Extract data from the conversation structure
     final timestamp = (conversation['timestamp'] as Timestamp).toDate();
     final transcript = conversation['transcript'] as String;
     final emotions = (conversation['emotions'] ?? []) as List<dynamic>;
     final associations = conversation['associations'] as Map<String, dynamic>?;
     final emotionalAnalysis = conversation['emotional_analysis'] as String;
-    
+
     // Extract location data (Environment in new schema)
     List<String> locations = [];
     if (associations != null && associations.containsKey('Environment')) {
-      final environmentMap = associations['Environment'] as Map<String, dynamic>?;
+      final environmentMap =
+          associations['Environment'] as Map<String, dynamic>?;
       if (environmentMap != null) {
         environmentMap.forEach((emotion, locationList) {
           if (locationList is List) {
@@ -85,80 +104,97 @@ class ConversationDetailScreen extends StatelessWidget {
       }
     }
 
-    // Calculate mood proportions dynamically
+    // Calculate mood proportions dynamically with mapping to display names
     final moodProportions = calculateMoodProportions(emotions);
 
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 224, 224, 224),
+      // Remove extendBodyBehindAppBar to fix black bar issue
+      backgroundColor: const Color.fromARGB(255, 197, 185, 245),
       appBar: AppBar(
         title: const Text('Conversation Details'),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(255, 131, 229, 211),
         elevation: 0,
-        foregroundColor: Colors.black,
+        foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Date Section
-            buildDateSection(timestamp),
+      body: Container(
+        // Use BoxDecoration for the gradient
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color.fromARGB(255, 131, 229, 211), // Light teal
+              Color.fromARGB(255, 208, 230, 247), // Light blue
+              Color.fromARGB(255, 197, 185, 245), // Light purple
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Date Section
+              buildDateSection(timestamp),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Neuropy Summary Section
-            buildNeuropySummary(emotionalAnalysis ?? "No summary available"),
+              // Neuropy Summary Section
+              buildNeuropySummary(emotionalAnalysis),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Mood Proportion Section
-            buildMoodProportionSection(moodProportions),
+              // Mood Proportion Section
+              buildMoodProportionSection(moodProportions),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Transcript Section (renamed from Transcription)
-            buildRoundedSection(
-              title: 'Transcript',
-              content: transcript,
-            ),
-
-            const SizedBox(height: 16),
-
-            // Location Section
-            if (locations.isNotEmpty)
+              // Transcript Section
               buildRoundedSection(
-                title: 'Environment',
-                content: locations.join('\n'),
+                title: 'Transcript',
+                content: transcript,
               ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // People Section
-            if (people.isNotEmpty)
-              buildRoundedSection(
-                title: 'People',
-                content: people.join('\n'),
-              ),
+              // Location Section
+              if (locations.isNotEmpty)
+                buildRoundedSection(
+                  title: 'Environment',
+                  content: locations.join('\n'),
+                ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Events Section
-            if (events.isNotEmpty)
-              buildRoundedSection(
-                title: 'Events',
-                content: events.join('\n'),
-              ),
-              
-            const SizedBox(height: 16),
-              
-            // Objects Section
-            if (objects.isNotEmpty)
-              buildRoundedSection(
-                title: 'Objects',
-                content: objects.join('\n'),
-              ),
-          ],
+              // People Section
+              if (people.isNotEmpty)
+                buildRoundedSection(
+                  title: 'People',
+                  content: people.join('\n'),
+                ),
+
+              const SizedBox(height: 16),
+
+              // Events Section
+              if (events.isNotEmpty)
+                buildRoundedSection(
+                  title: 'Events',
+                  content: events.join('\n'),
+                ),
+
+              const SizedBox(height: 16),
+
+              // Objects Section
+              if (objects.isNotEmpty)
+                buildRoundedSection(
+                  title: 'Objects',
+                  content: objects.join('\n'),
+                ),
+
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
@@ -170,6 +206,20 @@ class ConversationDetailScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            spreadRadius: 0,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Center(
         child: Text(
@@ -190,21 +240,29 @@ class ConversationDetailScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color.fromARGB(255, 72, 191, 169),
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Text(
+              Text(
                 'Neuropy Summary',
                 style: TextStyle(
                     color: Colors.black,
                     fontSize: 16,
                     fontWeight: FontWeight.bold),
               ),
-              const SizedBox(width: 4),
-              const Icon(Icons.auto_awesome, size: 18),
+              SizedBox(width: 4),
+              Icon(Icons.auto_awesome, size: 18),
             ],
           ),
           const SizedBox(height: 8),
@@ -223,28 +281,35 @@ class ConversationDetailScreen extends StatelessWidget {
     // Count occurrences of each basic emotion
     Map<String, int> emotionCounts = {};
     for (var emotion in emotions) {
-      final basicEmotion = emotion['basic_emotion'] as String;
+      String basicEmotion = emotion['basic_emotion'] as String;
       if (basicEmotion != 'Unknown') {
         emotionCounts[basicEmotion] = (emotionCounts[basicEmotion] ?? 0) + 1;
       }
     }
 
     // Calculate total for percentage
-    final totalEmotions = emotionCounts.values.fold(0, (sum, count) => sum + count);
+    final totalEmotions =
+        emotionCounts.values.fold(0, (sum, count) => sum + count);
     if (totalEmotions == 0) return [];
 
-    // Convert to list of maps with percentage values
+    // Convert to list of maps with percentage values and map to display names
     return emotionCounts.entries.map((entry) {
       final percentage = ((entry.value / totalEmotions) * 100).round();
+
+      // Use display name instead of database name
+      final displayLabel = getEmotionDisplayName(entry.key);
+
       return {
-        'label': entry.key,
+        'label': displayLabel, // Use display name for UI
         'value': percentage,
         'color': getEmotionColor(entry.key),
+        'originalEmotion': entry.key
       };
     }).toList();
   }
 
-  Widget buildMoodProportionSection(List<Map<String, dynamic>> moodProportions) {
+  Widget buildMoodProportionSection(
+      List<Map<String, dynamic>> moodProportions) {
     if (moodProportions.isEmpty) {
       return const SizedBox();
     }
@@ -254,6 +319,14 @@ class ConversationDetailScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,14 +354,14 @@ class ConversationDetailScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          // Change from Row to Wrap to handle multiple emotions better
           Wrap(
             spacing: 12,
             runSpacing: 8,
             children: moodProportions.map((mood) {
               return Text(
                 '${mood['label']} ${mood['value']}%',
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                style:
+                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
               );
             }).toList(),
           ),
@@ -298,11 +371,27 @@ class ConversationDetailScreen extends StatelessWidget {
   }
 
   Widget buildRoundedSection({required String title, required String content}) {
+    String processedContent = content;
+
+    // Replace all emotion names in parentheses with their display names
+    emotionDisplayNames.forEach((dbName, displayName) {
+      processedContent =
+          processedContent.replaceAll('($dbName)', '($displayName)');
+    });
+
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,7 +402,7 @@ class ConversationDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            content,
+            processedContent,
             style: const TextStyle(fontSize: 15, color: Colors.black87),
           ),
         ],
@@ -324,21 +413,21 @@ class ConversationDetailScreen extends StatelessWidget {
   Color getEmotionColor(String emotion) {
     switch (emotion.toLowerCase()) {
       case 'joy':
-        return const Color.fromARGB(255, 237, 156, 25);
+        return EmotionColors.joy;
       case 'trust':
-        return const Color.fromARGB(255, 155, 61, 130);
+        return EmotionColors.trust;
       case 'fear':
-        return const Color.fromARGB(255, 56, 155, 78);
+        return EmotionColors.fear;
       case 'surprise':
-        return const Color.fromARGB(255, 38, 188, 159);
+        return EmotionColors.surprise;
       case 'sadness':
-        return const Color.fromARGB(255, 62, 157, 245);
+        return EmotionColors.sadness;
       case 'disgust':
-        return const Color.fromARGB(255, 120, 88, 255);
+        return EmotionColors.disgust;
       case 'anger':
-        return const Color.fromARGB(255, 255, 92, 101);
+        return EmotionColors.anger;
       case 'anticipation':
-        return const Color.fromARGB(255, 252, 117, 87);
+        return EmotionColors.anticipation;
       default:
         return Colors.grey;
     }
