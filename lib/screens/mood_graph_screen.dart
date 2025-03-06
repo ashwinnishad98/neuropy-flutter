@@ -196,7 +196,7 @@ class _MoodGraphScreenState extends State<MoodGraphScreen> {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Mood Graph'),
+          title: const Text('Mood Record'),
           centerTitle: true,
           backgroundColor: Colors.white,
           elevation: 0,
@@ -212,7 +212,7 @@ class _MoodGraphScreenState extends State<MoodGraphScreen> {
             ],
           ),
         ),
-        backgroundColor: const Color.fromARGB(255, 224, 224, 224),
+        backgroundColor: const Color.fromARGB(255, 255, 255, 255),
         body: TabBarView(
           children: [
             Column(
@@ -258,15 +258,15 @@ class MoodGraphPainter extends CustomPainter {
     final daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     final yPositions = <String, double>{
-      'Joy': graphSize.height * (1 / 8),
-      'Trust': graphSize.height * (2 / 8),
+      'Happy': graphSize.height * (1 / 8),
+      'Confident': graphSize.height * (2 / 8),
       'Curiosity': graphSize.height * (3 / 8),
-      'Surprise': graphSize.height * (4 / 8),
-      'Fear': graphSize.height * (5 / 8),
-      'Anger': graphSize.height * (6 / 8),
+      'Shock': graphSize.height * (4 / 8),
+      'Anxious': graphSize.height * (5 / 8),
+      'Annoyance': graphSize.height * (6 / 8),
       'Disgust': graphSize.height * (7 / 8),
-      'Sadness': graphSize.height * (8 / 8),
-      'Anticipation': graphSize.height * (3 / 8),
+      'Sad': graphSize.height * (8 / 8),
+      // 'Anticipation': graphSize.height * (3 / 8),
     };
 
     final dayWidth = graphSize.width / daysOfWeek.length;
