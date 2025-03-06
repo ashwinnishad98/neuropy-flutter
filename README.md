@@ -3,7 +3,7 @@
 A Flutter mobile application for mood tracking and emotional analysis. Capstone project in collaboration between the University of Washington and T-Mobile.
 
 <p align="center">
-  <img src="screenshots/home_screen.png" alt="Home Screen" width="250"/>
+  <img src="screenshots/home-screen.png" alt="Home Screen" width="250"/>
 </p>
 
 ## Table of Contents
@@ -77,50 +77,48 @@ neuropy_app/
 Track your daily emotions using an intuitive wheel interface with varying intensity levels.
 
 <p align="center">
-  <img src="screenshots/emotion_wheel.png" alt="Emotion Wheel" width="250"/>
+  <img src="screenshots/mood-wheel.png" alt="Emotion Wheel" width="250"/>
 </p>
 
 ### Mood Analysis
 View visual representations of your emotional patterns over time with interactive graphs.
 
 <p align="center">
-  <img src="screenshots/mood_graph.png" alt="Mood Graph" width="250"/>
+  <img src="screenshots/mood-graph.png" alt="Mood Graph" width="250"/>
 </p>
 
 ### Conversation Journal
 Read through past conversations with AI-powered emotional analysis.
 
 <p align="center">
-  <img src="screenshots/conversation_history.png" alt="Conversation History" width="250"/>
+  <img src="screenshots/conversation-history.png" alt="Conversation History" width="250"/>
 </p>
 
 ### Factor Analysis
 Explore how different life factors correlate with your emotions through interactive bubble charts.
 
 <p align="center">
-  <img src="screenshots/mood_cloud.png" alt="Mood Cloud" width="250"/>
+  <img src="screenshots/mood-cloud.png" alt="Mood Cloud" width="250"/>
 </p>
 
 ### Conversation Details
 See comprehensive analysis of each conversation with emotion proportions and key elements.
 
 <p align="center">
-  <img src="screenshots/conversation_detail.png" alt="Conversation Detail" width="250"/>
+  <img src="screenshots/conversation-detail.png" alt="Conversation Detail" width="250"/>
 </p>
 
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/home_screen.png" alt="Home Screen" width="200"/>
-  <img src="screenshots/emotion_wheel.png" alt="Emotion Wheel" width="200"/>
-  <img src="screenshots/mood_graph.png" alt="Mood Graph" width="200"/>
-  <img src="screenshots/conversation_history.png" alt="Conversation History" width="200"/>
+  <img src="screenshots/home-screen.png" alt="Home Screen" width="200"/>
+  <img src="screenshots/mood-wheel.png" alt="Emotion Wheel" width="200"/>
+  <img src="screenshots/mood-graph.png" alt="Mood Graph" width="200"/>
+  <img src="screenshots/conversation-history.png" alt="Conversation History" width="200"/>
 </p>
 <p align="center">
-  <img src="screenshots/mood_cloud.png" alt="Mood Cloud" width="200"/>
-  <img src="screenshots/conversation_detail.png" alt="Conversation Detail" width="200"/>
-  <img src="screenshots/mood_detail.png" alt="Mood Detail" width="200"/>
-  <img src="screenshots/factor_detail.png" alt="Factor Detail" width="200"/>
+  <img src="screenshots/mood-cloud.png" alt="Mood Cloud" width="200"/>
+  <img src="screenshots/conversation-detail.png" alt="Conversation Detail" width="200"/>
 </p>
 
 ## Setup and Installation
