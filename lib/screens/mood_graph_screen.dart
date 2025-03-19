@@ -16,6 +16,18 @@ class _MoodGraphScreenState extends State<MoodGraphScreen> {
   bool isSelfLog = true;
   Map<String, List<String>> moodData = {}; // Holds mood data for the graph
 
+  // Map between database emotion names and UI display names
+  static final Map<String, String> dbToDisplayMap = {
+    'Joy': 'Happy',
+    'Anger': 'Annoyance',
+    'Sadness': 'Sad',
+    'Fear': 'Anxious',
+    'Trust': 'Confident',
+    'Disgust': 'Disgust',
+    'Surprise': 'Shock',
+    'Anticipation': 'Curiosity',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -43,12 +55,16 @@ class _MoodGraphScreenState extends State<MoodGraphScreen> {
         final data = doc.data();
         final timestamp = (data['timestamp'] as Timestamp).toDate();
         final day = DateFormat('EEE').format(timestamp); // e.g., "Mon", "Tue"
-        final emotion = data['emotion'] as String;
-
+        
+        // Ensure we're getting the database name from Firestore
+        final dbEmotion = data['emotion'] as String;
+        
         if (!fetchedData.containsKey(day)) {
           fetchedData[day] = [];
         }
-        fetchedData[day]!.add(emotion);
+        
+        // Store the database name in our local data structure
+        fetchedData[day]!.add(dbEmotion);
       }
 
       setState(() {
@@ -111,16 +127,24 @@ class _MoodGraphScreenState extends State<MoodGraphScreen> {
   }
 
   Widget buildLegend() {
+    // Define legend items with display names, but use db names for color lookup
+    final List<Map<String, String>> legendItems = [
+      {'display': 'Happy', 'db': 'Joy'},
+      {'display': 'Confident', 'db': 'Trust'},
+      {'display': 'Anxious', 'db': 'Fear'},
+      {'display': 'Shock', 'db': 'Surprise'},
+      {'display': 'Sad', 'db': 'Sadness'},
+      {'display': 'Disgust', 'db': 'Disgust'},
+      {'display': 'Annoyance', 'db': 'Anger'},
+      {'display': 'Curiosity', 'db': 'Anticipation'},
+    ];
+
     return Wrap(
       spacing: 10,
       runSpacing: 5,
       alignment: WrapAlignment.center,
-      children: [
-        'Joy', 'Trust', 'Fear', 'Surprise', 'Sadness', 'Disgust', 'Anger',
-        'Curiosity' // Changed from 'Anticipation'
-      ].map((emotion) {
-        // Get appropriate color (handle Curiosity/Anticipation mapping)
-        final color = MoodGraphPainter.getEmotionColorStatic(emotion);
+      children: legendItems.map((item) {
+        final color = MoodGraphPainter.getEmotionColorStatic(item['db']!);
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -134,7 +158,7 @@ class _MoodGraphScreenState extends State<MoodGraphScreen> {
             ),
             const SizedBox(width: 4),
             Text(
-              emotion,
+              item['display']!,
               style: TextStyle(fontSize: 12),
             ),
           ],
@@ -242,6 +266,30 @@ class MoodGraphPainter extends CustomPainter {
 
   MoodGraphPainter(this.moodData, this.startOfWeek, this.endOfWeek);
 
+  // Map between database emotion names and UI display names
+  static final Map<String, String> dbToDisplayMap = {
+    'Joy': 'Happy',
+    'Anger': 'Annoyance',
+    'Sadness': 'Sad',
+    'Fear': 'Anxious',
+    'Trust': 'Confident',
+    'Disgust': 'Disgust',
+    'Surprise': 'Shock',
+    'Anticipation': 'Curiosity',
+  };
+
+  // Map between UI display names and Y positions
+  static final Map<String, int> displayNameToPosition = {
+    'Happy': 1,
+    'Confident': 2,
+    'Curiosity': 3,
+    'Shock': 4,
+    'Anxious': 5,
+    'Annoyance': 6,
+    'Disgust': 7,
+    'Sad': 8,
+  };
+
   @override
   void paint(Canvas canvas, Size size) {
     // Define margin space for labels
@@ -257,17 +305,19 @@ class MoodGraphPainter extends CustomPainter {
 
     final daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-    final yPositions = <String, double>{
-      'Happy': graphSize.height * (1 / 8),
-      'Confident': graphSize.height * (2 / 8),
-      'Curiosity': graphSize.height * (3 / 8),
-      'Shock': graphSize.height * (4 / 8),
-      'Anxious': graphSize.height * (5 / 8),
-      'Annoyance': graphSize.height * (6 / 8),
-      'Disgust': graphSize.height * (7 / 8),
-      'Sad': graphSize.height * (8 / 8),
-      // 'Anticipation': graphSize.height * (3 / 8),
-    };
+    // Set up y-position mapping using display names
+    final Map<String, double> yPositions = {};
+    
+    // First, map the display names to their y-positions
+    displayNameToPosition.forEach((displayName, position) {
+      yPositions[displayName] = graphSize.height * (position / 8);
+    });
+    
+    // Then, map the database names to the same y-positions as their display name counterparts
+    // This ensures we can use moodData (which has DB names) to determine y-positions
+    dbToDisplayMap.forEach((dbName, displayName) {
+      yPositions[dbName] = yPositions[displayName]!;
+    });
 
     final dayWidth = graphSize.width / daysOfWeek.length;
     final gradientPaths = <Path>[];
@@ -275,7 +325,7 @@ class MoodGraphPainter extends CustomPainter {
     // Transform canvas to account for margins
     canvas.translate(leftMargin, 0);
 
-    // Draw grid and labels
+    // Draw grid and labels with display names
     _drawGridAndLabels(
         canvas, graphSize, daysOfWeek, yPositions, dayWidth, paint);
 
@@ -287,17 +337,16 @@ class MoodGraphPainter extends CustomPainter {
       final xPosition = dayWidth * (i + 0.5); // Center of the column
 
       // Draw dots for each emotion of the day
-      for (var emotion in moodData[day]!) {
-        paint.color = getEmotionColor(emotion);
+      for (var dbEmotion in moodData[day]!) {
+        paint.color = getEmotionColor(dbEmotion); // Get color using DB name
 
-        // Get appropriate y-position (handle Anticipation mapping to Curiosity)
-        final yPosition = yPositions[emotion] ??
-            (emotion == 'Anticipation'
-                ? yPositions['Curiosity']
-                : graphSize.height);
+        // Get y-position directly using the DB emotion name
+        final yPosition = yPositions[dbEmotion];
 
         // Draw a circle for emotions
-        canvas.drawCircle(Offset(xPosition, yPosition ?? 0.0), 6, paint);
+        if (yPosition != null) {
+          canvas.drawCircle(Offset(xPosition, yPosition), 6, paint);
+        }
       }
 
       // Create gradient paths for multiple emotions on the same day
@@ -306,17 +355,15 @@ class MoodGraphPainter extends CustomPainter {
         final emotionsForDay = moodData[day]!;
 
         for (int j = 0; j < emotionsForDay.length; j++) {
-          final emotion = emotionsForDay[j];
-          // Handle Anticipation mapping to Curiosity
-          final yPosition = yPositions[emotion] ??
-              (emotion == 'Anticipation'
-                  ? yPositions['Curiosity']
-                  : graphSize.height);
+          final dbEmotion = emotionsForDay[j];
+          final yPosition = yPositions[dbEmotion]; // Get position using DB name
 
-          if (j == 0) {
-            path.moveTo(xPosition, yPosition ?? 0.0);
-          } else {
-            path.lineTo(xPosition, yPosition ?? 0.0);
+          if (yPosition != null) {
+            if (j == 0) {
+              path.moveTo(xPosition, yPosition);
+            } else {
+              path.lineTo(xPosition, yPosition);
+            }
           }
         }
 
@@ -365,61 +412,21 @@ class MoodGraphPainter extends CustomPainter {
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
+    // We need to draw grid lines only for display names, not db names
+    final displayNameYPositions = displayNameToPosition.map((key, value) => 
+      MapEntry(key, size.height * (value / 8))
+    );
+
     // Draw horizontal grid lines for each emotion level
-    for (var entry in yPositions.entries) {
-      final yPosition = entry.value;
+    displayNameYPositions.forEach((emotionName, yPosition) {
       canvas.drawLine(
         Offset(0, yPosition),
         Offset(size.width, yPosition),
         gridPaint,
       );
-    }
+    });
 
-    for (int i = 0; i < daysOfWeek.length; i++) {
-      final xPosition = dayWidth * (i + 0.5); // Center of day column
-
-      // Draw dotted line for day centers
-      for (double y = 2; y < size.height; y += 8) {
-        canvas.drawLine(
-          Offset(xPosition, y),
-          Offset(xPosition, y + 4),
-          dayCenterPaint,
-        );
-      }
-    }
-
-    // Draw left & right borders of the graph area
-    canvas.drawLine(
-      Offset(0, 0),
-      Offset(0, size.height),
-      axisPaint,
-    );
-
-    canvas.drawLine(
-      Offset(size.width, 0),
-      Offset(size.width, size.height),
-      axisPaint,
-    );
-
-    // Draw top & bottom borders of the graph area
-    canvas.drawLine(
-      Offset(0, 0),
-      Offset(size.width, 0),
-      axisPaint,
-    );
-
-    canvas.drawLine(
-      Offset(0, size.height),
-      Offset(size.width, size.height),
-      axisPaint,
-    );
-
-    final emotionTextStyle = TextStyle(
-      fontSize: 10,
-      color: Colors.black87,
-      fontWeight: FontWeight.w600, // Semibold
-      letterSpacing: 0.2,
-    );
+    // ...existing code for drawing days and other elements...
 
     final dayTextStyle = TextStyle(
       fontSize: 10,
@@ -438,65 +445,78 @@ class MoodGraphPainter extends CustomPainter {
       textDirection: ui.TextDirection.ltr,
     );
 
-    for (var entry in yPositions.entries) {
-      final emotion = entry.key;
-      final yPosition = entry.value;
-
+    // Draw emotion labels on  the y-axis using the display names only
+    displayNameYPositions.forEach((emotionName, yPosition) {
       textPainter.text = TextSpan(
-        text: emotion,
-        style: emotionTextStyle,
+        text: emotionName,
+        style: TextStyle(
+          fontSize: 10,
+          color: Colors.black87,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
+        ),
       );
 
       textPainter.layout();
-
       textPainter.paint(canvas,
           Offset(-textPainter.width - 5, yPosition - textPainter.height / 2));
+    });
+
+    // ...existing code for drawing days and dates...
+    
+    for (int i = 0; i < daysOfWeek.length; i++) {
+      final xPosition = dayWidth * (i + 0.5); // Center of day column
+
+      // Draw dotted line for day centers
+      for (double y = 2; y < size.height; y += 8) {
+        canvas.drawLine(
+          Offset(xPosition, y),
+          Offset(xPosition, y + 4),
+          dayCenterPaint,
+        );
+      }
     }
 
+    // Draw all border lines
+    canvas.drawLine(Offset(0, 0), Offset(0, size.height), axisPaint);
+    canvas.drawLine(Offset(size.width, 0), Offset(size.width, size.height), axisPaint);
+    canvas.drawLine(Offset(0, 0), Offset(size.width, 0), axisPaint);
+    canvas.drawLine(Offset(0, size.height), Offset(size.width, size.height), axisPaint);
+
+    // Draw day labels
     for (int i = 0; i < daysOfWeek.length; i++) {
       final day = daysOfWeek[i];
       final xPosition = dayWidth * (i + 0.5);
-
       final date = startOfWeek.add(Duration(days: i));
 
       textPainter.text = TextSpan(
         children: [
-          TextSpan(
-            text: day,
-            style: dayTextStyle,
-          ),
-          TextSpan(
-            text: '\n${DateFormat('MMM d').format(date)}',
-            style: dateTextStyle,
-          ),
+          TextSpan(text: day, style: dayTextStyle),
+          TextSpan(text: '\n${DateFormat('MMM d').format(date)}', style: dateTextStyle),
         ],
       );
 
       textPainter.layout();
-
-      textPainter.paint(
-          canvas, Offset(xPosition - textPainter.width / 2, size.height + 5));
+      textPainter.paint(canvas, Offset(xPosition - textPainter.width / 2, size.height + 5));
     }
 
+    // Highlight today if it's in the displayed week
     final today = DateTime.now();
     if (today.isAfter(startOfWeek.subtract(Duration(days: 1))) &&
         today.isBefore(endOfWeek.add(Duration(days: 1)))) {
-      // Calculate which day of the week is today (0-6)
       final dayIndex = today.difference(startOfWeek).inDays;
       if (dayIndex >= 0 && dayIndex < daysOfWeek.length) {
-        final xPosition =
-            dayWidth * (dayIndex + 0.5); // Center of today's column
-
-        // Draw a subtle highlight behind today's column
+        final xPosition = dayWidth * (dayIndex + 0.5);
+        
         final highlightPaint = Paint()
           ..color = const Color.fromARGB(255, 94, 219, 250).withOpacity(0.15)
           ..style = PaintingStyle.fill;
 
         canvas.drawRect(
           Rect.fromLTWH(
-            xPosition - dayWidth / 2 + 1, // Left edge of column (with 1px gap)
+            xPosition - dayWidth / 2 + 1,
             0,
-            dayWidth - 2, // Width of column (with 1px gap on both sides)
+            dayWidth - 2,
             size.height,
           ),
           highlightPaint,
@@ -510,19 +530,13 @@ class MoodGraphPainter extends CustomPainter {
     return true;
   }
 
-  Color getEmotionColor(String emotion) {
-    // Map Anticipation to the Curiosity color
-    if (emotion == 'Anticipation') {
-      return EmotionColors.anticipation;
-    }
-    return EmotionColors.getColor(emotion);
+  Color getEmotionColor(String dbEmotion) {
+    // Use the DB emotion name directly for color lookup
+    return EmotionColors.getColor(dbEmotion);
   }
 
-  static Color getEmotionColorStatic(String emotion) {
-    // Map Anticipation to the Curiosity color in static method too
-    if (emotion == 'Curiosity') {
-      return EmotionColors.anticipation;
-    }
-    return EmotionColors.getColor(emotion);
+  static Color getEmotionColorStatic(String dbEmotion) {
+    // Use the DB emotion name directly for color lookup
+    return EmotionColors.getColor(dbEmotion);
   }
 }
